@@ -1,43 +1,17 @@
-# ==========================================
-# LINE 1: THE INITIALIZATION IMPORTS
-# ==========================================
 import streamlit as st
-from panda import options
+from pandas import options
 from supabase import create_client, Client
 from streamlit_autorefresh import st_autorefresh
 
-# ==========================================
-# LINE 7: SCREEN & PAGE LAYOUT SETUP
-# ==========================================
+# 1. Setup Page Configurations (Always Keep First)
 st.set_page_config(page_title="Summer Chat", page_icon="💬", layout="centered")
 st.title("💬 Our Private Chat")
 
-# ==========================================
-# LINE 12: THE SECURE PASSWORD GATEWAY
-# ==========================================
-PRIVATE_CHAT_PASSWORD = st.secrets["secret_password"]
-
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
-
-if not st.session_state.authenticated:
-    st.subheader("🔒 Private Access Required")
-    entered_password = st.text_input("Enter the secret chat password:", type="password")
-    
-    if st.button("Unlock Chat"):
-        if entered_password == PRIVATE_CHAT_PASSWORD:
-            st.session_state.authenticated = True
-            st.success("Access Granted!")
-            st.rerun()
-        else:
-            st.error("Incorrect password! Access denied.")
-    st.stop()  # Script pauses here until password matches
-
-# ==========================================
-# LINE 35: BACKGROUND TOOLS & LIVE SYNCING
-# ==========================================
+# --- AUTOMATIC LIVE REFRESH FEATURE ---
+# This silently checks the database for new messages every 2 seconds
 st_autorefresh(interval=2000, key="chat_live_refresh")
 
+# 2. Connect to Database
 SUPABASE_URL = "https://supabase.co"
 SUPABASE_KEY = "sb_publishable_yBq_Ee82lIgo-j5QeAIRQA_7qFKY3F"
 
@@ -47,9 +21,7 @@ def init_connection():
 
 supabase = init_connection()
 
-# ==========================================
-# LINE 48: SCREEN 2 - USER IDENTITY SIGN IN
-# ==========================================
+# 3. Choose User Identity
 if "username" not in st.session_state:
     st.session_state.username = ""
 
@@ -63,13 +35,12 @@ if not st.session_state.username:
             st.error("Name cannot be empty!")
     st.stop()
 
-# ==========================================
-# LINE 65: SCREEN 3 - THE ACTIVE CHAT ROOM
-# ==========================================
+# 4. Fetch Existing Messages
 def fetch_messages():
     response = supabase.table("chat_messages").select("*").order("created_at", desc=False).execute()
     return response.data
 
+# 5. Display Messages in Chat UI
 messages = fetch_messages()
 
 chat_container = st.container(height=400)
@@ -82,6 +53,7 @@ with chat_container:
             with st.chat_message("assistant"):
                 st.write(f"**{msg['sender']}**: {msg['message']}")
 
+# 6. Input New Message
 if prompt := st.chat_input("Type your message here..."):
     supabase.table("chat_messages").insert({"sender": st.session_state.username, "message": prompt}).execute()
     st.rerun()
